@@ -1,0 +1,26 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: peh
+      POSTGRES_PASSWORD: peh
+      POSTGRES_DB: peh
+    ports:
+      - "5432:5432"
+    volumes:
+      - peh_pgdata:/var/lib/postgresql/data
+
+  api:
+    build: .
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://peh:peh@db:5432/peh
+    command: >
+      sh -c "python -m peh.scripts.wait_for_db &&
+             uvicorn peh.app:app --host 0.0.0.0 --port 8000"
+
+volumes:
+  peh_pgdata:
