@@ -12,6 +12,7 @@ dependencies = [
   "pydantic-settings>=2.6.0",
   # Used for local/tests sqlite URLs: sqlite+pysqlite://...
   "greenlet>=3.0.0",
+  "alembic>=1.13.0",
 ]
 
 [project.optional-dependencies]
@@ -26,7 +27,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["peh*"]
+include = ["src*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

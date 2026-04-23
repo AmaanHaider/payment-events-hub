@@ -1,10 +1,10 @@
-# Payment Events Hub (`peh`)
+# Payment Events Hub (`src`)
 
 Backend service that ingests payment lifecycle events, stores immutable event history, maintains derived transaction state, and exposes ops/reconciliation APIs.
 
-**GitHub repository name:** `payment-events-hub` (this folder). **Python package:** `peh` (`import peh`, `uvicorn peh.app:app`).
+**GitHub repository name:** `payment-events-hub` (this folder). **Python package:** `src` (`import src`, `uvicorn src.app:app`).
 
-**This directory (`payment-events-hub/`) is the project root**—run `git init` here. The parent `solutions-engineer/` folder only holds the take-home context; `ASSIGNMENT.md` and `sample_events.json` are also copied here so the repo is self-contained.
+**This directory (`payment-events-hub/`) is the project root**—run `git init` here. The parent `solutions-engineer/` folder only holds the take-home context; `ASSIGNMENT.md` and `sample_data/sample_events.json` are also copied here so the repo is self-contained.
 
 ## Architecture
 
@@ -25,14 +25,14 @@ The `api` service sets **`DATABASE_URL`** for the bundled Postgres (`db`). Overr
 
 API: `http://localhost:8000`
 
-OpenAPI: `http://localhost:8000/docs`
+**API docs (Swagger / OpenAPI):** [Swagger UI](http://localhost:8000/docs) · [ReDoc](http://localhost:8000/redoc) · [`/openapi.json`](http://localhost:8000/openapi.json). Summaries and schema descriptions are defined in `src/app.py` and route modules. Written contract: [`doc/api.md`](doc/api.md).
 
 ### Load the provided sample dataset
 
 In another terminal (from `payment-events-hub/`):
 
 ```bash
-docker compose exec api python -m peh.scripts.load_sample_events /app/sample_events.json
+docker compose exec api python -m src.scripts.load_sample_events /app/sample_data/sample_events.json
 ```
 
 ## Local development (Python venv)
@@ -43,35 +43,34 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-**Database config** (in **`.env`**, see **`.env.example`**):
+**Database config** (in **`.env`**, start from **`.env.example`**):
 
-- **Recommended:** set **`DATABASE_URL`** to a full SQLAlchemy URL (`postgresql+psycopg://…`).
-- **Alternative:** omit `DATABASE_URL` and set **`DB_*`** split variables (defaults match typical local Postgres; see `peh/config.py`).
+- **`DATABASE_URL` is required** (non-empty SQLAlchemy URL, e.g. `postgresql+psycopg://…`). The app will not use implicit defaults; copy the example and fill in your real database.
 
 ```bash
-cp .env.example .env   # then adjust for your machine
+cp .env.example .env   # then set DATABASE_URL for your machine
 ```
 
 ### Local Postgres (pgAdmin / PostgreSQL on your machine)
 
-1. In pgAdmin (or `psql`), **create an empty database** (e.g. **`setu`**) and the user you use in `.env`.
-2. Put the matching URL in **`DATABASE_URL`** in `.env` (or use split **`DB_*`** vars if you prefer).
+1. In pgAdmin (or `psql`), **create an empty database** and user that match what you’ll put in `DATABASE_URL`.
+2. Copy **`.env.example`** to **`.env`** and set **`DATABASE_URL`** to your real SQLAlchemy URL (not the template placeholders).
 3. Verify connectivity and create tables:
 
 ```bash
-python -m peh.scripts.verify_db
+python -m src.scripts.verify_db
 ```
 
 4. Run the API:
 
 ```bash
-uvicorn peh.app:app --reload
+uvicorn src.app:app --reload
 ```
 
 5. Optional — load sample events (path is relative to current directory):
 
 ```bash
-python -m peh.scripts.load_sample_events sample_events.json
+python -m src.scripts.load_sample_events sample_data/sample_events.json
 ```
 
 ### Tests (SQLite, no Postgres required)
@@ -124,7 +123,7 @@ Returns transactions where any of the following is true:
 
 ## Deployment notes
 
-This repo includes a `Dockerfile` + `docker-compose.yml` suitable for platforms that can run containers. For managed Postgres, set either **`DATABASE_URL`** (full URL) or the same **`DB_*`** keys as secrets (e.g. `DB_HOST`, `DB_NAME`, `DB_SSL=true` if the provider requires SSL).
+This repo includes a `Dockerfile` + `docker-compose.yml` suitable for platforms that can run containers. For managed Postgres, set **`DATABASE_URL`** to a full SQLAlchemy URL in the environment (e.g. `sslmode=require` in the query string if the provider needs SSL).
 
 ## Tradeoffs / assumptions
 

@@ -1,13 +1,13 @@
-"""Verify configured DB URL (DATABASE_URL or built from DB_*) — connect + create_all."""
+"""Verify configured DATABASE_URL — connect + create_all."""
 
 from __future__ import annotations
 
 from sqlalchemy import text
 from sqlalchemy.engine.url import make_url
 
-from peh.config import settings
-from peh.db import engine
-from peh.models import Base
+from src.config import settings
+from src.db import engine
+from src.models import Base
 
 
 def main() -> None:

@@ -10,7 +10,7 @@ COPY README.md /app/README.md
 RUN pip install --no-cache-dir --upgrade pip \
   && pip install --no-cache-dir -e .
 
-COPY peh /app/peh
-COPY sample_events.json /app/sample_events.json
+COPY src /app/src
+COPY sample_data/sample_events.json /app/sample_data/sample_events.json
 
 EXPOSE 8000

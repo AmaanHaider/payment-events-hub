@@ -5,13 +5,11 @@ from typing import Optional
 
 import psycopg
 
-from peh.config import settings
+from src.config import settings
 
 
 def main() -> None:
     dsn = settings.database_url
-    if not dsn:
-        raise SystemExit("database URL could not be resolved (set DATABASE_URL or DB_* vars)")
 
     # psycopg expects a postgres:// or postgresql:// URI; strip optional +psycopg driver hint.
     dsn = dsn.replace("postgresql+psycopg://", "postgresql://")

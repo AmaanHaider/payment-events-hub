@@ -11,11 +11,12 @@
   ],
   "item": [
     {
-      "name": "Health",
+      "name": "GET /health",
       "request": {
         "method": "GET",
         "header": [],
-        "url": "{{baseUrl}}/health"
+        "url": "{{baseUrl}}/health",
+        "description": "DB connectivity + row counts. Response includes: status, database, event_count, transaction_count."
       }
     },
     {
@@ -28,6 +29,19 @@
           "raw": "{\n  \"event_id\": \"00000000-0000-0000-0000-000000000001\",\n  \"event_type\": \"payment_initiated\",\n  \"transaction_id\": \"00000000-0000-0000-0000-0000000000aa\",\n  \"merchant_id\": \"merchant_1\",\n  \"merchant_name\": \"QuickMart\",\n  \"amount\": 10.0,\n  \"currency\": \"INR\",\n  \"timestamp\": \"2026-01-01T00:00:00+00:00\"\n}\n"
         },
         "url": "{{baseUrl}}/events"
+      }
+    },
+    {
+      "name": "POST /events (duplicate with conflict)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"event_id\": \"00000000-0000-0000-0000-000000000001\",\n  \"event_type\": \"payment_initiated\",\n  \"transaction_id\": \"00000000-0000-0000-0000-0000000000aa\",\n  \"merchant_id\": \"merchant_1\",\n  \"merchant_name\": \"QuickMart\",\n  \"amount\": 99.99,\n  \"currency\": \"INR\",\n  \"timestamp\": \"2026-01-01T00:00:00+00:00\"\n}\n"
+        },
+        "url": "{{baseUrl}}/events",
+        "description": "Reuses the same event_id as the sample request but changes amount. Expect accepted=false, duplicate=true, conflict=true, and conflict_fields includes amount."
       }
     },
     {
@@ -83,7 +97,23 @@
       "request": {
         "method": "GET",
         "header": [],
-        "url": "{{baseUrl}}/reconciliation/discrepancies?limit=200&offset=0"
+        "url": {
+          "raw": "{{baseUrl}}/reconciliation/discrepancies?limit=50&offset=0",
+          "host": ["{{baseUrl}}"],
+          "path": ["reconciliation", "discrepancies"],
+          "query": [
+            { "key": "merchant_id", "value": "merchant_1", "disabled": true },
+            {
+              "key": "type",
+              "value": "settled_after_failed",
+              "disabled": true,
+              "description": "Optional: payment_terminal_conflict | processed_not_settled | settled_after_failed | settled_without_terminal_payment_outcome"
+            },
+            { "key": "limit", "value": "50" },
+            { "key": "offset", "value": "0" }
+          ]
+        },
+        "description": "Returns { items, summary: { total, by_type }, page: { limit, offset, total } }."
       }
     }
   ]

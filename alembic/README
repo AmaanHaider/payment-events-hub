@@ -1,0 +1,10 @@
+This directory contains Alembic migrations for the Payment Events Hub schema.
+
+Common commands:
+
+- Upgrade to latest:
+  alembic upgrade head
+
+- Create a new revision (autogenerate):
+  alembic revision --autogenerate -m "message"
+

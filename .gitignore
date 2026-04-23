@@ -11,5 +11,4 @@ venv/
 dist/
 build/
 *.log
-docs
-
+assisgnment-doc

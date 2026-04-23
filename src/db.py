@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from peh.config import settings
+from src.config import settings
 
 if settings.database_url.startswith("sqlite"):
     engine = create_engine(

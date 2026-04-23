@@ -7,9 +7,9 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import and_, func, select
 
-from peh.deps import DbSession
-from peh.models import Event, Merchant, Transaction
-from peh.schemas import (
+from src.deps import DbSession
+from src.models import Event, Merchant, Transaction
+from src.schemas import (
     EventOut,
     MerchantOut,
     PageMeta,
@@ -35,17 +35,35 @@ def _txn_sort_column(sort: SortField):
     return mapping[sort]
 
 
-@router.get("/transactions", response_model=TransactionListResponse)
+@router.get(
+    "/transactions",
+    response_model=TransactionListResponse,
+    summary="List transactions",
+    description=(
+        "Paged list with optional merchant and `payment_status` filters. "
+        "`from_date` / `to_date` filter by **event** `occurred_at` (half-open `[from, to)`): "
+        "only transactions with at least one event in range are included."
+    ),
+)
 def list_transactions(
     db: DbSession,
-    merchant_id: Optional[str] = None,
-    status: Optional[str] = Query(default=None, description="Matches transactions.payment_status"),
-    from_date: Optional[datetime] = Query(default=None),
-    to_date: Optional[datetime] = Query(default=None),
-    limit: int = Query(default=50, ge=1, le=200),
+    merchant_id: Optional[str] = Query(default=None, description="Filter by `transactions.merchant_id`"),
+    status: Optional[str] = Query(default=None, description="Exact match on `transactions.payment_status`"),
+    from_date: Optional[datetime] = Query(
+        default=None,
+        description="Include txns with any event where `occurred_at >= from_date`",
+    ),
+    to_date: Optional[datetime] = Query(
+        default=None,
+        description="Include txns with any event where `occurred_at < to_date`",
+    ),
+    limit: int = Query(default=50, ge=1, le=200, description="Page size (max 200)"),
     offset: int = Query(default=0, ge=0),
-    sort: SortField = "updated_at",
-    dir: SortDir = Query(default="desc", alias="direction"),
+    sort: SortField = Query(
+        default="updated_at",
+        description="Sort column: updated_at, created_at, amount, payment_status, settled_at, transaction_id",
+    ),
+    dir: SortDir = Query(default="desc", alias="direction", description="Sort direction: asc or desc"),
 ) -> TransactionListResponse:
     txn_filters = []
     if merchant_id is not None:
@@ -98,7 +116,16 @@ def list_transactions(
     return TransactionListResponse(items=items, page=PageMeta(limit=limit, offset=offset, total=total))
 
 
-@router.get("/transactions/{transaction_id}", response_model=TransactionDetailOut)
+@router.get(
+    "/transactions/{transaction_id}",
+    response_model=TransactionDetailOut,
+    summary="Get transaction detail",
+    description="Transaction row, merchant snapshot, and events ordered by `occurred_at`, then `event_id`.",
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Unknown `transaction_id`"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Transaction exists but merchant row missing"},
+    },
+)
 def get_transaction(db: DbSession, transaction_id: str) -> TransactionDetailOut:
     txn = db.get(Transaction, transaction_id)
     if txn is None:
