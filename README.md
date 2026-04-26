@@ -1,5 +1,17 @@
 # Payment Events Hub
 
+## What this is
+
+**Payment Events Hub** is a backend service for **payment operations and integrations**. It does three things in one system:
+
+1. **Ingest** payment lifecycle events (`payment_initiated`, `payment_processed`, `payment_failed`, `settled`) from partners or internal systems. Ingestion is **idempotent** on `event_id`—replays and duplicates do not create a second copy of the same event or corrupt derived state.
+2. **Store** a full, **append-only event history** per transaction and a **current snapshot** of each transaction (amount, currency, payment and settlement state, reconciliation flags) so list and detail APIs stay fast.
+3. **Expose** **REST** endpoints for **listing and inspecting transactions** and for **reconciliation** (summary aggregates by merchant, day, status, or settlement; and a **discrepancy** list for ops).
+
+The API is built with **FastAPI**, persisted in **PostgreSQL** in production (SQLite in tests), and ships **OpenAPI** automatically (`/docs`, `/redoc`, `/openapi.json`). Use this README for setup, behavior, and API details.
+
+---
+
 | | |
 |---|---|
 | **Live API (HTTPS)** | **`https://payment-events-hub-production.up.railway.app`** |
@@ -8,37 +20,27 @@
 | **OpenAPI JSON** | [`/openapi.json`](https://payment-events-hub-production.up.railway.app/openapi.json) |
 | **Health** | [`/health`](https://payment-events-hub-production.up.railway.app/health) |
 
-Deployed on **Railway** (replace the host above if you fork or redeploy under a different domain). `GET /` has no handler (expect **404**); use `/docs` or `/health` to verify the service.
-
----
-
-This README documents the **Payment Events Hub** service: a FastAPI backend that ingests payment lifecycle events, stores immutable history, maintains derived fields on `transactions` for list/detail and reconciliation APIs, and exposes the routes described in this file and in OpenAPI (`/openapi.json`).
-
-**Take-home context:** The original problem statement lives in [`assisgnment-doc/ASSIGNMENT.md`](assisgnment-doc/ASSIGNMENT.md). This README is the implementation-facing companion.
-
-### Use of AI tools
-
-I used **Cursor** with integrated AI while building this project (code, config, and documentation). I reviewed changes, ran tests, and manually verified behavior locally and on the deployed URL. The design decisions and final submission are mine.
+Deployed on **Railway** (update the host if you redeploy elsewhere). **`GET /`** is not defined (expect **404**); use **`/docs`**, **`/redoc`**, or **`/health`**.
 
 ---
 
 ## Table of contents
 
-1. [Use of AI tools](#use-of-ai-tools)
-2. [Project overview](#1-project-overview)
-3. [Architecture and flow](#2-architecture-and-flow)
-4. [Data model (high level)](#3-data-model-high-level)
-5. [API reference](#4-api-reference)
-6. [Live deployment](#5-live-deployment)
-7. [Deployment guide (Railway)](#6-deployment-guide-railway)
-8. [Local setup](#7-local-setup)
-9. [How it works (deep dive)](#8-how-it-works-deep-dive)
-10. [Running the project](#9-running-the-project)
-11. [Scripts and utilities](#10-scripts-and-utilities)
-12. [Testing](#11-testing)
-13. [OpenAPI, Swagger, and ReDoc](#12-openapi-swagger-and-redoc)
-14. [Project structure](#13-project-structure)
-15. [Assumptions and tradeoffs](#14-assumptions-and-tradeoffs)
+1. [Project overview](#1-project-overview)
+2. [Architecture and flow](#2-architecture-and-flow)
+3. [Data model (high level)](#3-data-model-high-level)
+4. [API reference](#4-api-reference)
+5. [Live deployment](#5-live-deployment)
+6. [Deployment guide (Railway)](#6-deployment-guide-railway)
+7. [Local setup](#7-local-setup)
+8. [How it works (deep dive)](#8-how-it-works-deep-dive)
+9. [Running the project](#9-running-the-project)
+10. [Scripts and utilities](#10-scripts-and-utilities)
+11. [Testing](#11-testing)
+12. [OpenAPI, Swagger, and ReDoc](#12-openapi-swagger-and-redoc)
+13. [Project structure](#13-project-structure)
+14. [Assumptions and tradeoffs](#14-assumptions-and-tradeoffs)
+15. [Use of AI tools](#15-use-of-ai-tools)
 
 ---
 
@@ -57,7 +59,7 @@ Partners receive **payment lifecycle events** from multiple upstream systems. Th
 
 - An HTTP **REST API** (FastAPI) backed by a **SQL** database (PostgreSQL in production; SQLite for tests).
 - **Schema migrations** via **Alembic** for PostgreSQL; automatic bootstrap on app startup.
-- A large **sample dataset** (`sample_data/sample_events.json`) to exercise queries and edge cases: **10,355 events** across **5 merchants** (assignment asks for 10,000+ events and 3+ merchants).
+- A large **sample dataset** (`sample_data/sample_events.json`) to exercise queries and edge cases: **10,355 events** across **5 merchants**.
 - A **Postman collection** and **pytest** coverage for key flows and edge cases.
 - A **containerized** deployment path (`Dockerfile` + `docker-compose.yml`).
 
@@ -400,7 +402,7 @@ GET /reconciliation/discrepancies?type=settled_after_failed&limit=50&offset=0
 
 ## 5. Live deployment
 
-The **live base URL and quick links** are also in the [table at the top of this README](#payment-events-hub).
+The **live base URL and quick links** are in the [opening section](#what-this-is) (including the **Live API** table).
 
 If you deploy to Railway (or any host), your **base URL** is whatever the platform assigns (custom domain or default `*.up.railway.app`). This repository does not guarantee any third-party host is up: **verify** with a browser or `curl`.
 
@@ -701,8 +703,7 @@ curl -sS "$BASE/reconciliation/summary?group_by=merchant" | jq .
 payment-events-hub/
 ├── alembic/                 # SQL migrations (env.py, versions/)
 ├── alembic.ini              # Alembic config (working dir for revision paths)
-├── assisgnment-doc/
-│   └── ASSIGNMENT.md        # Original take-home brief
+
 ├── doc/
 │   └── api.md               # Written API notes (complements OpenAPI)
 ├── postman/
@@ -736,3 +737,9 @@ payment-events-hub/
 - **Derived state** (transaction row + flags) is updated on ingest for **fast** list/discrepancy queries; a full recompute is available via `recompute_flags.py` if you need to validate invariants.
 - **Settlement semantics** are implemented in `apply_payment_lifecycle()` for `EventType.SETTLED` in `src/services/ingestion.py` (not re-derived here, so the code stays the source of truth).
 - **No authentication** in this repository: the HTTP API is open to anyone who can reach it unless you put something in front of it.
+
+---
+
+## 15. Use of AI tools
+
+I used **Cursor** with integrated AI while building this project (code, config, and documentation). I reviewed changes, ran tests, and manually verified behavior locally and on the deployed URL. The design decisions and final submission are mine.
