@@ -1,27 +1,44 @@
 # Payment Events Hub
 
+| | |
+|---|---|
+| **Live API (HTTPS)** | **`https://payment-events-hub-production.up.railway.app`** |
+| **Swagger UI** | [`/docs`](https://payment-events-hub-production.up.railway.app/docs) |
+| **ReDoc** | [`/redoc`](https://payment-events-hub-production.up.railway.app/redoc) |
+| **OpenAPI JSON** | [`/openapi.json`](https://payment-events-hub-production.up.railway.app/openapi.json) |
+| **Health** | [`/health`](https://payment-events-hub-production.up.railway.app/health) |
+
+Deployed on **Railway** (replace the host above if you fork or redeploy under a different domain). `GET /` has no handler (expect **404**); use `/docs` or `/health` to verify the service.
+
+---
+
 This README documents the **Payment Events Hub** service: a FastAPI backend that ingests payment lifecycle events, stores immutable history, maintains derived fields on `transactions` for list/detail and reconciliation APIs, and exposes the routes described in this file and in OpenAPI (`/openapi.json`).
 
 **Take-home context:** The original problem statement lives in [`assisgnment-doc/ASSIGNMENT.md`](assisgnment-doc/ASSIGNMENT.md). This README is the implementation-facing companion.
+
+### Use of AI tools
+
+I used **Cursor** with integrated AI while building this project (code, config, and documentation). I reviewed changes, ran tests, and manually verified behavior locally and on the deployed URL. The design decisions and final submission are mine.
 
 ---
 
 ## Table of contents
 
-1. [Project overview](#1-project-overview)
-2. [Architecture and flow](#2-architecture-and-flow)
-3. [Data model (high level)](#3-data-model-high-level)
-4. [API reference](#4-api-reference)
-5. [Live deployment](#5-live-deployment)
-6. [Deployment guide (Railway)](#6-deployment-guide-railway)
-7. [Local setup](#7-local-setup)
-8. [How it works (deep dive)](#8-how-it-works-deep-dive)
-9. [Running the project](#9-running-the-project)
-10. [Scripts and utilities](#10-scripts-and-utilities)
-11. [Testing](#11-testing)
-12. [OpenAPI, Swagger, and ReDoc](#12-openapi-swagger-and-redoc)
-13. [Project structure](#13-project-structure)
-14. [Assumptions and tradeoffs](#14-assumptions-and-tradeoffs)
+1. [Use of AI tools](#use-of-ai-tools)
+2. [Project overview](#1-project-overview)
+3. [Architecture and flow](#2-architecture-and-flow)
+4. [Data model (high level)](#3-data-model-high-level)
+5. [API reference](#4-api-reference)
+6. [Live deployment](#5-live-deployment)
+7. [Deployment guide (Railway)](#6-deployment-guide-railway)
+8. [Local setup](#7-local-setup)
+9. [How it works (deep dive)](#8-how-it-works-deep-dive)
+10. [Running the project](#9-running-the-project)
+11. [Scripts and utilities](#10-scripts-and-utilities)
+12. [Testing](#11-testing)
+13. [OpenAPI, Swagger, and ReDoc](#12-openapi-swagger-and-redoc)
+14. [Project structure](#13-project-structure)
+15. [Assumptions and tradeoffs](#14-assumptions-and-tradeoffs)
 
 ---
 
@@ -46,15 +63,48 @@ Partners receive **payment lifecycle events** from multiple upstream systems. Th
 
 ### 1.3 Technology stack
 
-| Layer | Choice |
-|--------|--------|
-| API | [FastAPI](https://fastapi.tiangolo.com/) |
-| ASGI server | [Uvicorn](https://www.uvicorn.org/) |
-| ORM / DB | [SQLAlchemy 2.0](https://www.sqlalchemy.org/) |
-| Migrations | [Alembic](https://alembic.sqlalchemy.org/) |
-| Config | [Pydantic Settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) (`DATABASE_URL`) |
-| DB (production) | PostgreSQL (e.g. Railway Postgres) |
-| DB (tests) | SQLite in-memory (`tests/conftest.py` forces this) |
+Versions below are **minimums** from [`pyproject.toml`](pyproject.toml) (actual installed versions may be higher after `pip install`).
+
+#### Runtime and language
+
+| Item | Detail |
+|------|--------|
+| **Python** | **3.9+** (`requires-python` in `pyproject.toml`). The [`Dockerfile`](Dockerfile) uses **Python 3.12** for container images. |
+| **Package layout** | Installable package `src` via **setuptools** (`pip install -e .`). |
+
+#### Web and API
+
+| Component | Package / role |
+|-----------|----------------|
+| **HTTP API** | [**FastAPI**](https://fastapi.tiangolo.com/) `>=0.115` — routing, dependency injection, automatic **OpenAPI** / **JSON Schema** for models. |
+| **ASGI server** | [**Uvicorn**](https://www.uvicorn.org/) `[standard] >=0.30` — serves the app in dev, Docker, and production (bind `0.0.0.0`, port from `PORT` or `8000`). |
+| **Request/response models** | [**Pydantic**](https://docs.pydantic.dev/) v2 (pulled in by FastAPI) — validation and serialization for ingest and list/detail payloads. |
+| **Settings** | [**pydantic-settings**](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) `>=2.6` — loads **`DATABASE_URL`** from the environment (and optional `.env`). |
+
+#### Data access and persistence
+
+| Component | Package / role |
+|-----------|----------------|
+| **ORM** | [**SQLAlchemy**](https://www.sqlalchemy.org/) `>=2.0.30` — `Session`, models in `src/models.py`, query building in routers. |
+| **PostgreSQL driver** | [**psycopg**](https://www.psycopg.org/) `[binary] >=3.2` — use SQLAlchemy URLs like `postgresql+psycopg://...`. |
+| **Migrations** | [**Alembic**](https://alembic.sqlalchemy.org/) `>=1.13` — revision [`0001_init`](alembic/versions/0001_init.py); applied on app startup for PostgreSQL via `init_db()` in `src/app.py`. |
+| **SQLite (tests only)** | Standard library + SQLAlchemy URL `sqlite+pysqlite:///:memory:` — forced in [`tests/conftest.py`](tests/conftest.py). **[greenlet](https://github.com/python-greenlet/greenlet)** `>=3.0` supports async-adjacent ORM usage with SQLite. |
+
+#### Operations and quality
+
+| Component | Package / role |
+|-----------|----------------|
+| **Containers** | [**Docker**](https://www.docker.com/) — [`Dockerfile`](Dockerfile) for production-style runs; [`docker-compose.yml`](docker-compose.yml) runs **API + PostgreSQL 16** locally. |
+| **DB startup probe (compose)** | `src/scripts/wait_for_db.py` uses **psycopg** to wait for Postgres before Uvicorn starts. |
+| **Tests** | [**pytest**](https://pytest.org/) `>=8.3`; [**httpx**](https://www.python-httpx.org/) `>=0.27` for calling the test app. Declared under `[project.optional-dependencies] dev` — install with `pip install -e ".[dev]"`. |
+
+#### Databases by environment
+
+| Environment | Database |
+|-------------|----------|
+| **Production** (e.g. Railway) | **PostgreSQL** — set `DATABASE_URL` to a `postgresql+psycopg://` (or compatible) URL. |
+| **Local (Docker Compose)** | **PostgreSQL 16** in the `db` service; `DATABASE_URL` points at that container. |
+| **Unit tests** | **SQLite** in-memory only — no Postgres required. |
 
 ---
 
@@ -349,6 +399,8 @@ GET /reconciliation/discrepancies?type=settled_after_failed&limit=50&offset=0
 ---
 
 ## 5. Live deployment
+
+The **live base URL and quick links** are also in the [table at the top of this README](#payment-events-hub).
 
 If you deploy to Railway (or any host), your **base URL** is whatever the platform assigns (custom domain or default `*.up.railway.app`). This repository does not guarantee any third-party host is up: **verify** with a browser or `curl`.
 
