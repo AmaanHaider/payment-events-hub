@@ -105,6 +105,25 @@ app.include_router(events.router)
 app.include_router(transactions.router)
 app.include_router(reconciliation.router)
 
+@app.get(
+    "/",
+    tags=["health"],
+    summary="Service landing",
+    description="Quick landing response with helpful links (docs, health).",
+)
+def root() -> dict[str, object]:
+    return {
+        "service": settings.app_name,
+        "message": "Hello from Payment Events Hub 👋",
+        "author": "Amaan Haider",
+        "links": {
+            "docs": "/docs",
+            "redoc": "/redoc",
+            "openapi": "/openapi.json",
+            "health": "/health",
+        },
+    }
+
 
 @app.get(
     "/health",
